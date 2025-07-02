@@ -619,66 +619,6 @@
             </div>
             <div id="bookingsList"></div>
         </div>
-
-        <!-- Database Management Section -->
-        <div class="database-section" style="margin-top: 30px; padding: 20px; background: #f5f5f5; border-radius: 15px;">
-            <h2 style="color: #333; margin-bottom: 15px;">🗄️ Quản lý Database</h2>
-            
-            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; color: #1976d2;">
-                💡 <strong>Hướng dẫn:</strong> Export định kỳ để backup dữ liệu. Import để khôi phục. Database được lưu dạng JSON có thể mở bằng Notepad.
-                <br>
-                📝 <strong>Format:</strong> File .json hoặc .txt đều được. Có thể edit bằng tay nếu cần.
-                <br>
-                🔄 <strong>Auto-save:</strong> Dữ liệu tự động backup mỗi 5 phút vào bộ nhớ tạm.
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px;">
-                <button onclick="exportData()" style="padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    📥 Export Data
-                </button>
-                <button onclick="document.getElementById('importFile').click()" style="padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    📤 Import Data
-                </button>
-                <button onclick="showDatabase()" style="padding: 10px 20px; background: #ff9800; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    👁️ Xem Database
-                </button>
-                <button onclick="clearDatabase()" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    🗑️ Xóa tất cả
-                </button>
-                <button onclick="loadSampleData()" style="padding: 10px 20px; background: #9c27b0; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                    📊 Load mẫu
-                </button>
-            </div>
-            
-            <input type="file" id="importFile" accept=".json,.txt" style="display: none;" onchange="importData(event)">
-            
-            <!-- Database viewer -->
-            <div id="databaseViewer" style="display: none; margin-top: 15px;">
-                <h3 style="margin-bottom: 10px;">📝 Database Text (có thể copy):</h3>
-                <textarea id="databaseText" style="width: 100%; height: 300px; padding: 15px; border-radius: 8px; border: 1px solid #ddd; font-family: monospace; font-size: 12px;" readonly></textarea>
-                <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button onclick="copyDatabase()" style="padding: 8px 20px; background: #4caf50; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        📋 Copy Database
-                    </button>
-                    <button onclick="downloadDatabase()" style="padding: 8px 20px; background: #2196f3; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        💾 Download as .txt
-                    </button>
-                    <button onclick="exportThisMonth()" style="padding: 8px 20px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        📅 Export tháng này
-                    </button>
-                    <button onclick="hideDatabase()" style="padding: 8px 20px; background: #666; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        ❌ Đóng
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Auto-save status -->
-            <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
-                <input type="checkbox" id="autoSave" checked onchange="toggleAutoSave()">
-                <label for="autoSave" style="color: #666;">Tự động lưu mỗi khi có thay đổi</label>
-                <span id="saveStatus" style="color: #4caf50; font-size: 14px;"></span>
-            </div>
-        </div>
     </div>
 
     <!-- Confirmation Modal -->
@@ -697,22 +637,28 @@
         // State management - Using in-memory storage for Claude.ai compatibility
         let bookings = [];
         
-        // Try to load from localStorage if available, otherwise use in-memory
-        try {
-            const stored = localStorage.getItem('carBookings');
-            if (stored) {
-                bookings = JSON.parse(stored);
-                // Migrate old bookings without date field
-                bookings = bookings.map(booking => {
-                    if (!booking.date) {
-                        booking.date = new Date().toISOString().split('T')[0];
-                    }
-                    return booking;
-                });
+        async function loadDatabase() {
+            try {
+                const res = await fetch('/api/bookings');
+                if (!res.ok) throw new Error('Không load được database!');
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    bookings = data;
+                } else if (data.bookings) {
+                    bookings = data.bookings;
+                } else {
+                    bookings = [];
+                }
+                displayCurrentDate();
+                renderTimeGrid();
+                renderBookingsList();
+            } catch (e) {
+                alert('Lỗi load database: ' + e.message);
+                bookings = [];
+                displayCurrentDate();
+                renderTimeGrid();
+                renderBookingsList();
             }
-        } catch (e) {
-            // localStorage not available, use in-memory storage
-            console.log('Using in-memory storage');
         }
         
         let deleteBookingId = null;
@@ -747,6 +693,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            loadDatabase();
             // Set min date for date inputs
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('startDate').min = today;
@@ -759,10 +706,6 @@
                     filterBookings(filter, e.target);
                 });
             });
-            
-            displayCurrentDate();
-            renderTimeGrid();
-            renderBookingsList();
         });
 
         // Toggle multi-day booking
@@ -877,7 +820,7 @@
         }
 
         // Handle form submission
-        document.getElementById('bookingForm').addEventListener('submit', (e) => {
+        document.getElementById('bookingForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const department = document.getElementById('department').value;
@@ -939,6 +882,7 @@
             }
 
             // Add bookings for each date
+            let newBookings = [];
             bookingDates.forEach(date => {
                 const booking = {
                     id: Date.now() + Math.random(), // Ensure unique ID
@@ -949,23 +893,26 @@
                     date: date,
                     createdAt: new Date().toISOString()
                 };
-                bookings.push(booking);
+                newBookings.push(booking);
             });
-
-            saveBookings();
-            
-            // Reset form
-            e.target.reset();
-            document.getElementById('multiDayToggle').checked = false;
-            toggleMultiDay();
-            
-            // Update UI
-            renderTimeGrid();
-            renderBookingsList();
-            
-            // Show success message
-            const days = bookingDates.length;
-            showSuccessMessage(days > 1 ? `Đã đăng ký thành công cho ${days} ngày!` : 'Đăng ký thành công!');
+            try {
+                await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newBookings.length === 1 ? newBookings[0] : newBookings)
+                });
+                // Reset form
+                e.target.reset();
+                document.getElementById('multiDayToggle').checked = false;
+                toggleMultiDay();
+                // Update UI
+                await loadDatabase();
+                // Show success message
+                const days = bookingDates.length;
+                showSuccessMessage(days > 1 ? `Đã đăng ký thành công cho ${days} ngày!` : 'Đăng ký thành công!');
+            } catch (err) {
+                alert('Lỗi khi lưu booking: ' + err.message);
+            }
         });
 
         // Check time conflict for specific date
@@ -1081,397 +1028,21 @@
             deleteBookingId = id;
             document.getElementById('deleteModal').style.display = 'flex';
         }
-
         window.closeModal = function() {
             document.getElementById('deleteModal').style.display = 'none';
             deleteBookingId = null;
         }
-
-        document.getElementById('confirmDelete').addEventListener('click', () => {
+        document.getElementById('confirmDelete').addEventListener('click', async () => {
             if (deleteBookingId) {
-                bookings = bookings.filter(b => b.id !== deleteBookingId);
-                saveBookings();
-                renderTimeGrid();
-                renderBookingsList();
-                closeModal();
+                try {
+                    await fetch(`/api/bookings/${deleteBookingId}`, { method: 'DELETE' });
+                    await loadDatabase();
+                    closeModal();
+                } catch (err) {
+                    alert('Lỗi khi xóa booking: ' + err.message);
+                }
             }
         });
-
-        // Save bookings - Compatible with both localStorage and in-memory
-        function saveBookings() {
-            try {
-                localStorage.setItem('carBookings', JSON.stringify(bookings));
-                
-                // Auto-save to file if enabled
-                if (document.getElementById('autoSave') && document.getElementById('autoSave').checked) {
-                    autoSaveToFile();
-                }
-                
-                updateSaveStatus('✅ Đã lưu');
-            } catch (e) {
-                // localStorage not available, data will persist in memory during session
-                console.log('Data saved in memory');
-                updateSaveStatus('💾 Lưu trong bộ nhớ tạm');
-            }
-        }
-
-        // Update save status
-        function updateSaveStatus(message) {
-            const status = document.getElementById('saveStatus');
-            if (status) {
-                status.textContent = message;
-                setTimeout(() => {
-                    status.textContent = '';
-                }, 3000);
-            }
-        }
-
-        // Auto-save to file
-        function autoSaveToFile() {
-            const dataStr = formatDatabaseText();
-            const fileName = `car-booking-backup-${new Date().toISOString().split('T')[0]}.json`;
-            
-            // Store in session for recovery
-            sessionStorage.setItem('carBookingsBackup', dataStr);
-        }
-
-        // Toggle auto-save
-        window.toggleAutoSave = function() {
-            const autoSave = document.getElementById('autoSave').checked;
-            if (autoSave) {
-                updateSaveStatus('✅ Tự động lưu đã bật');
-            } else {
-                updateSaveStatus('❌ Tự động lưu đã tắt');
-            }
-        }
-
-        // Export data
-        window.exportData = function() {
-            const dataStr = formatDatabaseText();
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `car-booking-data-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            showSuccessMessage('📥 Đã export dữ liệu thành công!');
-        }
-
-        // Import data
-        window.importData = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    let importBookings = [];
-                    
-                    // Support both old and new format
-                    if (importedData.bookings && Array.isArray(importedData.bookings)) {
-                        importBookings = importedData.bookings;
-                    } else if (importedData.metadata && importedData.bookings) {
-                        // New format with metadata
-                        importBookings = importedData.bookings;
-                    } else if (Array.isArray(importedData)) {
-                        importBookings = importedData;
-                    } else {
-                        throw new Error('Invalid data format');
-                    }
-                    
-                    // Clean imported bookings (remove extra fields from new format)
-                    importBookings = importBookings.map(booking => {
-                        // Extract only required fields
-                        const cleanBooking = {
-                            id: booking.id || Date.now() + Math.random(),
-                            department: booking.department,
-                            startTime: booking.startTime,
-                            endTime: booking.endTime,
-                            purpose: booking.purpose,
-                            date: booking.date,
-                            createdAt: booking.createdAt || new Date().toISOString()
-                        };
-                        
-                        // Validate required fields
-                        if (!cleanBooking.department || !cleanBooking.startTime || 
-                            !cleanBooking.endTime || !cleanBooking.purpose || !cleanBooking.date) {
-                            throw new Error('Missing required fields in booking data');
-                        }
-                        
-                        return cleanBooking;
-                    });
-                    
-                    const importCount = importBookings.length;
-                    const currentCount = bookings.length;
-                    
-                    const choice = confirm(
-                        `📤 File chứa ${importCount} booking.\n` +
-                        `📊 Hiện tại có ${currentCount} booking.\n\n` +
-                        `OK = Ghi đè (xóa dữ liệu cũ)\n` +
-                        `Cancel = Gộp thêm (giữ dữ liệu cũ)`
-                    );
-                    
-                    if (choice) {
-                        // Overwrite
-                        bookings = importBookings;
-                        showSuccessMessage(`📤 Đã thay thế bằng ${importCount} booking mới!`);
-                    } else {
-                        // Merge
-                        bookings.push(...importBookings);
-                        showSuccessMessage(`📤 Đã thêm ${importCount} booking (tổng: ${bookings.length})!`);
-                    }
-                    
-                    saveBookings();
-                    EventBus.emit('bookingAdded');
-                } catch (error) {
-                    alert('❌ Lỗi: File không đúng định dạng!');
-                    console.error(error);
-                }
-            };
-            reader.readAsText(file);
-            
-            // Reset input
-            event.target.value = '';
-        }
-
-        // Format database text with statistics
-        function formatDatabaseText() {
-            // Calculate statistics
-            const stats = {
-                byDepartment: {},
-                byMonth: {},
-                totalHours: 0
-            };
-            
-            bookings.forEach(booking => {
-                // By department
-                if (!stats.byDepartment[booking.department]) {
-                    stats.byDepartment[booking.department] = 0;
-                }
-                stats.byDepartment[booking.department]++;
-                
-                // By month
-                const monthKey = booking.date.substring(0, 7);
-                if (!stats.byMonth[monthKey]) {
-                    stats.byMonth[monthKey] = 0;
-                }
-                stats.byMonth[monthKey]++;
-                
-                // Total hours
-                const start = timeToMinutes(booking.startTime);
-                const end = timeToMinutes(booking.endTime);
-                stats.totalHours += (end - start) / 60;
-            });
-            
-            const data = {
-                metadata: {
-                    version: '1.0',
-                    exportDate: new Date().toISOString(),
-                    exportDateFormatted: new Date().toLocaleString('vi-VN'),
-                    totalBookings: bookings.length,
-                    totalHours: Math.round(stats.totalHours),
-                    statistics: {
-                        byDepartment: stats.byDepartment,
-                        byMonth: stats.byMonth
-                    }
-                },
-                bookings: bookings.sort((a, b) => {
-                    if (a.date !== b.date) return a.date.localeCompare(b.date);
-                    return a.startTime.localeCompare(b.startTime);
-                }).map(booking => ({
-                    ...booking,
-                    _display: {
-                        departmentName: departments[booking.department].name,
-                        formattedDate: formatDate(booking.date),
-                        duration: `${timeToMinutes(booking.endTime) - timeToMinutes(booking.startTime)} phút`
-                    }
-                }))
-            };
-            
-            return JSON.stringify(data, null, 2);
-        }
-
-        // Show database
-        window.showDatabase = function() {
-            const viewer = document.getElementById('databaseViewer');
-            const textArea = document.getElementById('databaseText');
-            
-            textArea.value = formatDatabaseText();
-            viewer.style.display = 'block';
-            
-            // Auto select text
-            textArea.select();
-        }
-
-        // Hide database
-        window.hideDatabase = function() {
-            document.getElementById('databaseViewer').style.display = 'none';
-        }
-
-        // Copy database
-        window.copyDatabase = function() {
-            const textArea = document.getElementById('databaseText');
-            textArea.select();
-            document.execCommand('copy');
-            showSuccessMessage('📋 Đã copy database!');
-        }
-
-        // Download database as text
-        window.downloadDatabase = function() {
-            const dataStr = formatDatabaseText();
-            const dataBlob = new Blob([dataStr], { type: 'text/plain' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `car-booking-database-${new Date().toISOString().split('T')[0]}.txt`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            showSuccessMessage('💾 Đã download database!');
-        }
-
-        // Clear database
-        window.clearDatabase = function() {
-            if (confirm('⚠️ Bạn có chắc muốn xóa TẤT CẢ dữ liệu?\nHành động này không thể hoàn tác!')) {
-                if (confirm('⚠️ XÁC NHẬN LẦN 2: Xóa tất cả dữ liệu?')) {
-                    bookings = [];
-                    saveBookings();
-                    EventBus.emit('bookingDeleted');
-                    showSuccessMessage('🗑️ Đã xóa tất cả dữ liệu!');
-                }
-            }
-        }
-
-        // Export this month's data
-        window.exportThisMonth = function() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth();
-            const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
-            const lastDay = new Date(year, month + 1, 0).toISOString().split('T')[0];
-            
-            const monthBookings = bookings.filter(booking => 
-                booking.date >= firstDay && booking.date <= lastDay
-            );
-            
-            if (monthBookings.length === 0) {
-                alert('Không có booking nào trong tháng này!');
-                return;
-            }
-            
-            const data = {
-                metadata: {
-                    version: '1.0',
-                    exportDate: new Date().toISOString(),
-                    period: `Tháng ${month + 1}/${year}`,
-                    totalBookings: monthBookings.length,
-                    dateRange: {
-                        from: firstDay,
-                        to: lastDay
-                    }
-                },
-                bookings: monthBookings.sort((a, b) => {
-                    if (a.date !== b.date) return a.date.localeCompare(b.date);
-                    return a.startTime.localeCompare(b.startTime);
-                })
-            };
-            
-            const dataStr = JSON.stringify(data, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `car-booking-thang-${month + 1}-${year}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            showSuccessMessage(`📅 Đã export ${monthBookings.length} booking của tháng ${month + 1}!`);
-        }
-
-        // Load sample data for testing
-        window.loadSampleData = function() {
-            if (confirm('📊 Load dữ liệu mẫu để test?\nDữ liệu hiện tại sẽ được giữ lại.')) {
-                const today = new Date();
-                const sampleBookings = [
-                    {
-                        id: Date.now() + Math.random(),
-                        department: 'it',
-                        startTime: '09:00',
-                        endTime: '11:00',
-                        purpose: 'Họp với khách hàng ABC',
-                        date: today.toISOString().split('T')[0],
-                        createdAt: new Date(today.getTime() - 3600000).toISOString()
-                    },
-                    {
-                        id: Date.now() + Math.random() + 1,
-                        department: 'sales',
-                        startTime: '14:00',
-                        endTime: '16:00',
-                        purpose: 'Giao hàng cho đối tác XYZ',
-                        date: today.toISOString().split('T')[0],
-                        createdAt: new Date(today.getTime() - 7200000).toISOString()
-                    },
-                    {
-                        id: Date.now() + Math.random() + 2,
-                        department: 'marketing',
-                        startTime: '08:00',
-                        endTime: '10:00',
-                        purpose: 'Khảo sát thị trường',
-                        date: new Date(today.getTime() + 86400000).toISOString().split('T')[0],
-                        createdAt: new Date().toISOString()
-                    }
-                ];
-                
-                bookings.push(...sampleBookings);
-                saveBookings();
-                EventBus.emit('bookingAdded');
-                showSuccessMessage('📊 Đã load 3 booking mẫu!');
-            }
-        }
-
-        // Recovery from session
-        function checkForRecovery() {
-            const backup = sessionStorage.getItem('carBookingsBackup');
-            if (backup && bookings.length === 0) {
-                try {
-                    const data = JSON.parse(backup);
-                    let recoveryBookings = [];
-                    
-                    // Support multiple formats
-                    if (data.bookings && Array.isArray(data.bookings)) {
-                        recoveryBookings = data.bookings;
-                    } else if (data.metadata && data.bookings) {
-                        recoveryBookings = data.bookings;
-                    }
-                    
-                    if (recoveryBookings.length > 0 && confirm('🔄 Phát hiện dữ liệu backup. Khôi phục?')) {
-                        bookings = recoveryBookings.map(booking => ({
-                            id: booking.id || Date.now() + Math.random(),
-                            department: booking.department,
-                            startTime: booking.startTime,
-                            endTime: booking.endTime,
-                            purpose: booking.purpose,
-                            date: booking.date,
-                            createdAt: booking.createdAt || new Date().toISOString()
-                        }));
-                        saveBookings();
-                        EventBus.emit('bookingAdded');
-                        showSuccessMessage('✅ Đã khôi phục dữ liệu!');
-                    }
-                } catch (e) {
-                    console.error('Recovery failed:', e);
-                }
-            }
-        }
 
         // Show success message
         function showSuccessMessage(message = '✅ Đăng ký thành công!') {

@@ -1,0 +1,13 @@
+{
+  "bookings": [
+    {
+      "id": 1751427636576.4119,
+      "department": "design",
+      "startTime": "02:00",
+      "endTime": "04:00",
+      "purpose": "chơi",
+      "date": "2025-07-02",
+      "createdAt": "2025-07-02T03:40:36.576Z"
+    }
+  ]
+}
