@@ -631,6 +631,18 @@
         </div>
     </div>
 
+       <!-- Confirmation Modal -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <h3>Xác nhận xóa</h3>
+            <p>Bạn có chắc chắn muốn xóa lịch đăng ký này?</p>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel-btn" onclick="closeModal()">Hủy</button>
+                <button class="modal-btn confirm-btn" id="confirmDelete">Xóa</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ===== Khởi tạo biến trạng thái =====
         let bookings = [];
@@ -1068,17 +1080,5 @@
             }
         });
     </script>
-
-    <!-- Modal xác nhận xóa -->
-    <div class="modal" id="deleteModal" style="display: none;">
-        <div class="modal-content">
-            <h3>Xác nhận xóa</h3>
-            <p>Bạn có chắc chắn muốn xóa booking này?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn cancel-btn" onclick="closeModal()">Hủy</button>
-                <button class="modal-btn confirm-btn" id="confirmDelete">Xóa</button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>
