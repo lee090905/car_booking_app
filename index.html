@@ -289,6 +289,14 @@
             background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
             border-color: #30cfd0 !important;
         }
+        .dept-accountant {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            border-color: #ffb347 !important;
+        }
+        .dept-hr {
+            background: linear-gradient(135deg, #8fd3f4 0%, #84fab0 100%);
+            border-color: #8fd3f4 !important;
+        }
 
         /* Bookings List */
         .bookings-list {
@@ -572,6 +580,8 @@
                         <option value="purchasing">Mua hàng</option>
                         <option value="marketing">Marketing</option>
                         <option value="sales">Kinh doanh</option>
+                        <option value="accountant">Kế toán</option>
+                        <option value="hr">Nhân sự</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -621,22 +631,14 @@
         </div>
     </div>
 
-    <!-- Confirmation Modal -->
-    <div class="modal" id="deleteModal">
-        <div class="modal-content">
-            <h3>Xác nhận xóa</h3>
-            <p>Bạn có chắc chắn muốn xóa lịch đăng ký này?</p>
-            <div class="modal-buttons">
-                <button class="modal-btn cancel-btn" onclick="closeModal()">Hủy</button>
-                <button class="modal-btn confirm-btn" id="confirmDelete">Xóa</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // State management - Using in-memory storage for Claude.ai compatibility
+        // ===== Khởi tạo biến trạng thái =====
         let bookings = [];
-        
+        let deleteBookingId = null;
+        let currentDate = new Date();
+        let currentFilter = 'all';
+
+        // ===== Hàm tải dữ liệu từ server =====
         async function loadDatabase() {
             try {
                 const res = await fetch('/api/bookings');
@@ -660,46 +662,41 @@
                 renderBookingsList();
             }
         }
-        
-        let deleteBookingId = null;
-        let currentDate = new Date();
-        let currentFilter = 'all';
 
-        // Department info - Updated
+        // ===== Thông tin phòng ban =====
         const departments = {
             it: { name: 'IT', class: 'dept-it' },
             design: { name: 'Thiết kế', class: 'dept-design' },
             production: { name: 'Sản xuất', class: 'dept-production' },
             purchasing: { name: 'Mua hàng', class: 'dept-purchasing' },
             marketing: { name: 'Marketing', class: 'dept-marketing' },
-            sales: { name: 'Kinh doanh', class: 'dept-sales' }
+            sales: { name: 'Kinh doanh', class: 'dept-sales' },
+            accountant: { name: 'Kế toán', class: 'dept-accountant' },
+            hr: { name: 'Nhân sự', class: 'dept-hr' }
         };
 
-        // Time slots definition
+        // ===== Định nghĩa các khung giờ =====
         const timeSlots = [
-            { start: '00:00', end: '02:00' },
-            { start: '02:00', end: '04:00' },
-            { start: '04:00', end: '06:00' },
-            { start: '06:00', end: '08:00' },
-            { start: '08:00', end: '10:00' },
-            { start: '10:00', end: '12:00' },
-            { start: '12:00', end: '14:00' },
-            { start: '14:00', end: '16:00' },
-            { start: '16:00', end: '18:00' },
-            { start: '18:00', end: '20:00' },
-            { start: '20:00', end: '22:00' },
-            { start: '22:00', end: '24:00' }
+            { start: '07:00', end: '08:00' },
+            { start: '08:00', end: '09:00' },
+            { start: '09:00', end: '10:00' },
+            { start: '10:00', end: '11:00' },
+            { start: '11:00', end: '12:00' },
+            { start: '12:00', end: '13:00' },
+            { start: '13:00', end: '14:00' },
+            { start: '14:00', end: '15:00' },
+            { start: '15:00', end: '16:00' },
+            { start: '16:00', end: '17:00' }
         ];
 
-        // Initialize
+        // ===== Khởi tạo khi trang load =====
         document.addEventListener('DOMContentLoaded', () => {
-            loadDatabase();
-            // Set min date for date inputs
+            loadDatabase(); // Tải dữ liệu từ server
+            // Thiết lập ngày tối thiểu cho input ngày
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('startDate').min = today;
             document.getElementById('endDate').min = today;
-            
-            // Add event listeners for filter buttons
+            // Gắn sự kiện filter
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const filter = e.target.getAttribute('data-filter');
@@ -708,11 +705,10 @@
             });
         });
 
-        // Toggle multi-day booking
+        // ===== Toggle chọn nhiều ngày =====
         window.toggleMultiDay = function() {
             const checkbox = document.getElementById('multiDayToggle');
             const dateFields = document.getElementById('dateRangeFields');
-            
             if (checkbox.checked) {
                 dateFields.classList.add('active');
                 document.getElementById('startDate').required = true;
@@ -724,27 +720,27 @@
             }
         }
 
-        // Change current viewing date
+        // ===== Chuyển ngày xem lịch =====
         window.changeDate = function(days) {
             currentDate.setDate(currentDate.getDate() + days);
             displayCurrentDate();
             renderTimeGrid();
         }
 
-        // Display current date
+        // ===== Hiển thị ngày hiện tại =====
         function displayCurrentDate() {
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             const dateStr = currentDate.toLocaleDateString('vi-VN', options);
             document.getElementById('currentDate').textContent = dateStr;
         }
 
-        // Format date for display
+        // ===== Định dạng ngày cho hiển thị =====
         function formatDate(date) {
             const d = new Date(date);
             return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
         }
 
-        // Format created date
+        // ===== Định dạng ngày tạo booking =====
         function formatCreatedDate(dateStr) {
             const date = new Date(dateStr);
             const now = new Date();
@@ -752,12 +748,10 @@
             const diffMins = Math.floor(diffMs / 60000);
             const diffHours = Math.floor(diffMins / 60);
             const diffDays = Math.floor(diffHours / 24);
-
             if (diffMins < 1) return 'Vừa xong';
             if (diffMins < 60) return `${diffMins} phút trước`;
             if (diffHours < 24) return `${diffHours} giờ trước`;
             if (diffDays < 7) return `${diffDays} ngày trước`;
-            
             return date.toLocaleDateString('vi-VN', { 
                 day: '2-digit', 
                 month: '2-digit', 
@@ -767,28 +761,23 @@
             });
         }
 
-        // Render time grid
+        // ===== Render lưới thời gian trong ngày =====
         function renderTimeGrid() {
             const grid = document.getElementById('timeGrid');
             grid.innerHTML = '';
-
             const currentDateStr = currentDate.toISOString().split('T')[0];
             const todayBookings = bookings.filter(booking => booking.date === currentDateStr);
-
             timeSlots.forEach(slot => {
                 const slotDiv = document.createElement('div');
                 slotDiv.className = 'time-slot';
-
-                // Check if this slot has a booking
+                // Kiểm tra slot này đã có booking chưa
                 const booking = todayBookings.find(b => {
                     const bookingStart = timeToMinutes(b.startTime);
                     const bookingEnd = timeToMinutes(b.endTime);
                     const slotStart = timeToMinutes(slot.start);
                     const slotEnd = timeToMinutes(slot.end === '24:00' ? '23:59' : slot.end);
-                    
                     return (bookingStart < slotEnd && bookingEnd > slotStart);
                 });
-
                 if (booking) {
                     slotDiv.classList.add('booked', departments[booking.department].class);
                     slotDiv.innerHTML = `
@@ -806,68 +795,56 @@
                             <div class="slot-available">✓ Có thể sử dụng</div>
                         </div>
                     `;
-                    
-                    // Quick book on click
+                    // Đặt nhanh khi click slot trống
                     slotDiv.addEventListener('click', () => {
                         document.getElementById('startTime').value = slot.start;
                         document.getElementById('endTime').value = slot.end === '24:00' ? '23:59' : slot.end;
                         document.getElementById('department').focus();
                     });
                 }
-
                 grid.appendChild(slotDiv);
             });
         }
 
-        // Handle form submission
+        // ===== Xử lý submit form đăng ký =====
         document.getElementById('bookingForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const department = document.getElementById('department').value;
             const startTime = document.getElementById('startTime').value;
             const endTime = document.getElementById('endTime').value;
             const purpose = document.getElementById('purpose').value;
             const isMultiDay = document.getElementById('multiDayToggle').checked;
-
-            // Validate time
+            // Kiểm tra giờ
             if (startTime >= endTime) {
                 alert('Giờ kết thúc phải sau giờ bắt đầu!');
                 return;
             }
-
             let bookingDates = [];
-            
             if (isMultiDay) {
                 const startDate = document.getElementById('startDate').value;
                 const endDate = document.getElementById('endDate').value;
-                
                 if (!startDate || !endDate) {
                     alert('Vui lòng chọn ngày bắt đầu và kết thúc!');
                     return;
                 }
-                
                 if (startDate > endDate) {
                     alert('Ngày kết thúc phải sau ngày bắt đầu!');
                     return;
                 }
-                
-                // Generate date range
+                // Sinh mảng ngày
                 let currentBookingDate = new Date(startDate);
                 const endBookingDate = new Date(endDate);
-                
                 while (currentBookingDate <= endBookingDate) {
                     bookingDates.push(new Date(currentBookingDate).toISOString().split('T')[0]);
                     currentBookingDate.setDate(currentBookingDate.getDate() + 1);
                 }
             } else {
-                // Single day booking - use current viewing date
+                // Đăng ký 1 ngày
                 bookingDates.push(currentDate.toISOString().split('T')[0]);
             }
-
-            // Check for conflicts for each date
+            // Kiểm tra xung đột từng ngày
             let hasConflict = false;
             let conflictMessage = '';
-            
             for (const date of bookingDates) {
                 const conflict = checkTimeConflict(startTime, endTime, date);
                 if (conflict) {
@@ -875,17 +852,15 @@
                     conflictMessage += `${formatDate(date)}: ${departments[conflict.department].name} đã đăng ký\n`;
                 }
             }
-            
             if (hasConflict) {
                 alert(`Xung đột thời gian:\n${conflictMessage}`);
                 return;
             }
-
-            // Add bookings for each date
+            // Gửi booking lên server
             let newBookings = [];
             bookingDates.forEach(date => {
                 const booking = {
-                    id: Date.now() + Math.random(), // Ensure unique ID
+                    id: Date.now() + Math.random(), // Đảm bảo id duy nhất
                     department,
                     startTime,
                     endTime,
@@ -905,9 +880,9 @@
                 e.target.reset();
                 document.getElementById('multiDayToggle').checked = false;
                 toggleMultiDay();
-                // Update UI
+                // Cập nhật lại giao diện
                 await loadDatabase();
-                // Show success message
+                // Thông báo thành công
                 const days = bookingDates.length;
                 showSuccessMessage(days > 1 ? `Đã đăng ký thành công cho ${days} ngày!` : 'Đăng ký thành công!');
             } catch (err) {
@@ -915,7 +890,7 @@
             }
         });
 
-        // Check time conflict for specific date
+        // ===== Kiểm tra xung đột thời gian cho từng ngày =====
         function checkTimeConflict(startTime, endTime, date) {
             return bookings.find(booking => {
                 return booking.date === date && 
@@ -923,34 +898,29 @@
             });
         }
 
-        // Filter bookings
+        // ===== Lọc danh sách booking theo filter =====
         function filterBookings(filter, buttonElement) {
             currentFilter = filter;
-            
-            // Update button states
+            // Đổi trạng thái nút filter
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             buttonElement.classList.add('active');
-            
             renderBookingsList();
         }
 
-        // Render bookings list
+        // ===== Render danh sách booking =====
         function renderBookingsList() {
             const list = document.getElementById('bookingsList');
             list.innerHTML = '';
-
             let filteredBookings = [...bookings];
             const today = new Date().toISOString().split('T')[0];
-
-            // Apply filter
+            // Lọc theo filter
             if (currentFilter === 'today') {
                 filteredBookings = filteredBookings.filter(b => b.date === today);
             } else if (currentFilter === 'upcoming') {
                 filteredBookings = filteredBookings.filter(b => b.date > today);
             }
-
             if (filteredBookings.length === 0) {
                 list.innerHTML = `
                     <div class="empty-state">
@@ -960,16 +930,14 @@
                 `;
                 return;
             }
-
-            // Sort bookings by date and start time
+            // Sắp xếp theo ngày và giờ bắt đầu
             filteredBookings.sort((a, b) => {
                 if (a.date !== b.date) {
                     return a.date.localeCompare(b.date);
                 }
                 return a.startTime.localeCompare(b.startTime);
             });
-
-            // Group bookings by date
+            // Gom nhóm theo ngày
             const bookingsByDate = {};
             filteredBookings.forEach(booking => {
                 if (!bookingsByDate[booking.date]) {
@@ -977,16 +945,14 @@
                 }
                 bookingsByDate[booking.date].push(booking);
             });
-
-            // Render grouped bookings
+            // Render từng nhóm ngày
             Object.entries(bookingsByDate).forEach(([date, dateBookings]) => {
-                // Date header
+                // Header ngày
                 const dateHeader = document.createElement('div');
                 dateHeader.style.cssText = 'font-weight: bold; color: #667eea; margin: 15px 0 10px 0;';
                 dateHeader.textContent = formatDate(date);
                 list.appendChild(dateHeader);
-
-                // Bookings for this date
+                // Render các booking trong ngày
                 dateBookings.forEach(booking => {
                     const item = document.createElement('div');
                     item.className = 'booking-item';
@@ -1011,19 +977,18 @@
             });
         }
 
-        // Time conversion utilities
+        // ===== Tiện ích chuyển đổi thời gian =====
         function timeToMinutes(time) {
             const [hours, minutes] = time.split(':').map(Number);
             return hours * 60 + minutes;
         }
-
         function minutesToTime(minutes) {
             const hours = Math.floor(minutes / 60);
             const mins = minutes % 60;
             return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
         }
 
-        // Delete booking
+        // ===== Xóa booking =====
         window.confirmDelete = function(id) {
             deleteBookingId = id;
             document.getElementById('deleteModal').style.display = 'flex';
@@ -1044,7 +1009,7 @@
             }
         });
 
-        // Show success message
+        // ===== Hiện thông báo thành công =====
         function showSuccessMessage(message = '✅ Đăng ký thành công!') {
             const messageDiv = document.createElement('div');
             messageDiv.style.cssText = `
@@ -1061,14 +1026,13 @@
             `;
             messageDiv.textContent = message;
             document.body.appendChild(messageDiv);
-
             setTimeout(() => {
                 messageDiv.style.animation = 'slideOut 0.3s ease';
                 setTimeout(() => messageDiv.remove(), 300);
             }, 3000);
         }
 
-        // Add animations
+        // ===== Thêm hiệu ứng thông báo =====
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideIn {
@@ -1082,20 +1046,19 @@
         `;
         document.head.appendChild(style);
 
-        // Close modal when clicking outside
+        // ===== Đóng modal khi click ra ngoài =====
         document.getElementById('deleteModal').addEventListener('click', (e) => {
             if (e.target.id === 'deleteModal') {
                 closeModal();
             }
         });
 
-        // Keyboard navigation - Only when not typing in input fields
+        // ===== Điều hướng bằng phím mũi tên trái/phải =====
         document.addEventListener('keydown', (e) => {
-            // Skip if user is typing in any input field
+            // Bỏ qua nếu đang nhập liệu
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
-            
             if (e.key === 'ArrowLeft') {
                 changeDate(-1);
             } else if (e.key === 'ArrowRight') {
